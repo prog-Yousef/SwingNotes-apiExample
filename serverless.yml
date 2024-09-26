@@ -2,16 +2,97 @@
 org: yousefs
 # "service" is the name of this project. This will also be added to your AWS resource names.
 service: swingNotes-apiExempel
-frameworkVersion: "4"
+
 
 provider:
   name: aws
-  runtime: nodejs20.x
+  runtime: nodejs18.x
+  region: eu-north-1
+  iam:
+    role: arn:aws:iam::396913740002:role/lecture-role
+
+build:
+  esbuild:
+    minify: true
+
+package:
+  individually: true
 
 functions:
-  hello:
-    handler: handler.hello
+  GetNotes:
+    handler: functions/GetNotes/index.handler
     events:
       - httpApi:
-          path: /
+          path: /notes/{username}
           method: get
+  
+  CreateNote:
+    handler: functions/CreateNote/index.handler
+    events:
+      - httpApi:
+          path: /notes
+          method: post
+  
+  UpdateNote:
+    handler: functions/UpdateNote/index.handler
+    events:
+      - httpApi:
+          path: /notes/{id}
+          method: put
+  
+  DeleteNote:
+    handler: functions/DeleteNote/index.handler
+    events:
+      - httpApi:
+          path: /notes/{id}
+          method: delete
+  
+  SignupUser:
+    handler: functions/account/signup.js
+    events:
+      - httpApi:
+          path: /user/signup
+          method: post
+  
+  LoginUser:
+    handler: functions/account/login.js
+    events:
+      - httpApi:
+          path: /user/login
+          method: post
+
+
+resources:
+  Resources:
+    MyTodoTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: example-todos-middy
+        AttributeDefinitions:
+          - AttributeName: "username"
+            AttributeType: "S"
+          - AttributeName: "todoId"
+            AttributeType: "S"
+          - AttributeName: "timestamp"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "username"
+            KeyType: HASH # Primary key (partition key)
+          - AttributeName: "todoId"
+            KeyType: "RANGE" # Sort key
+        BillingMode: PAY_PER_REQUEST
+        GlobalSecondaryIndexes:
+          - IndexName: timestampIndex
+            KeySchema:
+              - AttributeName: "username"
+                KeyType: "HASH"
+              - AttributeName: "timestamp"
+                KeyType: "RANGE"
+            Projection:
+              ProjectionType: "ALL"
+          - IndexName: usernameIndex
+            KeySchema:
+              - AttributeName: "username"
+                KeyType: "HASH"
+            Projection:
+              ProjectionType: "ALL"
