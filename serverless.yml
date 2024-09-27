@@ -8,91 +8,101 @@ provider:
   name: aws
   runtime: nodejs18.x
   region: eu-north-1
+ 
+
+ 
   iam:
-    role: arn:aws:iam::396913740002:role/lecture-role
-
-build:
-  esbuild:
-    minify: true
-
-package:
-  individually: true
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource:
+            - Fn::GetAtt: [NotesTable, Arn]
+            - Fn::GetAtt: [UsersTable, Arn]
+  environment:
+    NOTES_TABLE: notes-table
+    USERS_TABLE: notes-table-user
+    JWT_SECRET: your-jwt-secret
 
 functions:
-  GetNotes:
-    handler: functions/GetNotes/index.handler
+  api:
+    handler: handler.handler
+    events:
+      - httpApi: "*"
+  getNotes:
+    handler: functions/Notes/getNotes/getNotes.handler
     events:
       - httpApi:
-          path: /notes/{username}
+          path: /notes
           method: get
-  
-  CreateNote:
-    handler: functions/CreateNote/index.handler
+  addNotes:
+    handler: functions/Notes/addNotes/addNotes.handler
     events:
       - httpApi:
           path: /notes
           method: post
-  
-  UpdateNote:
-    handler: functions/UpdateNote/index.handler
+  updateNotes:
+    handler: functions/Notes/updateNotes/updateNotes.handler
     events:
       - httpApi:
-          path: /notes/{id}
+          path: /notes
           method: put
-  
-  DeleteNote:
-    handler: functions/DeleteNote/index.handler
+  deleteNotes:
+    handler: functions/Notes/deleteNotes/deleteNotes.handler
     events:
       - httpApi:
-          path: /notes/{id}
+          path: /notes
           method: delete
-  
-  SignupUser:
-    handler: functions/account/signup.js
+  signup:
+    handler: functions/User/signup/signup.handler
     events:
       - httpApi:
           path: /user/signup
           method: post
-  
-  LoginUser:
-    handler: functions/account/login.js
+  login:
+    handler: functions/User/login/login.handler
     events:
       - httpApi:
           path: /user/login
           method: post
 
-
 resources:
   Resources:
-    MyTodoTable:
+    NotesTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: example-todos-middy
+        TableName: notes-table
         AttributeDefinitions:
-          - AttributeName: "username"
-            AttributeType: "S"
-          - AttributeName: "todoId"
-            AttributeType: "S"
-          - AttributeName: "timestamp"
-            AttributeType: "S"
+          - AttributeName: id
+            AttributeType: S
         KeySchema:
-          - AttributeName: "username"
-            KeyType: HASH # Primary key (partition key)
-          - AttributeName: "todoId"
-            KeyType: "RANGE" # Sort key
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: notes-table-user
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: username
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         GlobalSecondaryIndexes:
-          - IndexName: timestampIndex
+          - IndexName: username-index
             KeySchema:
-              - AttributeName: "username"
-                KeyType: "HASH"
-              - AttributeName: "timestamp"
-                KeyType: "RANGE"
+              - AttributeName: username
+                KeyType: HASH
             Projection:
-              ProjectionType: "ALL"
-          - IndexName: usernameIndex
-            KeySchema:
-              - AttributeName: "username"
-                KeyType: "HASH"
-            Projection:
-              ProjectionType: "ALL"
+              ProjectionType: ALL
